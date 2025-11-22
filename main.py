@@ -1,13 +1,16 @@
+from typing import List
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from Database.dbModels import ItemCreate, Item, ItemResponse
 from Database.dbConnect import dbSession, engine, Base
 from starlette import status
 import logging
+from owner.admin import setup_admin
 
 Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="J-Bites")
+setup_admin(app)
 
 @app.on_event("startup")
 def reset_database():
@@ -27,18 +30,10 @@ def get_item(item_id: int, session: dbSession):
     return item
 
 
-@app.post("/items", status_code=status.HTTP_201_CREATED)
-def create_item(item: ItemCreate, session: dbSession):  # ✅ Use ItemCreate + session
-
-    db_item = Item(**item.model_dump())
-    # Save to database
-    session.add(db_item)
-    session.commit()
-    session.refresh(db_item)
-
-    return db_item
-
-
+@app.get("/items", response_model=List[ItemResponse])
+def get_all_items(session: dbSession):  # ✅ Use ItemCreate + session
+    items = session.query(Item).all()
+    return items
 
 
 if __name__ == "__main__":

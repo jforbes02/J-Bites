@@ -3,27 +3,6 @@
 GET http://127.0.0.1:8000/
 Accept: application/json
 
-### Create a new item
-POST http://127.0.0.1:8000/items
-Content-Type: application/json
-
-{
-  "name": "Burger",
-  "price": 10.99,
-  "description": "Classic beef burger"
-}
-
-###
-### Create another item
-POST http://127.0.0.1:8000/items
-Content-Type: application/json
-
-{
-  "name": "Pizza",
-  "price": 15.99,
-  "description": "Cheese pizza"
-}
-
 ###
 
 GET http://127.0.0.1:8000/items/1
@@ -31,3 +10,7 @@ Accept: application/json
 
 
 ###
+
+###
+GET http://127.0.0.1:8000/items
+Accept: application/json

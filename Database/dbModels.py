@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Enum as SQLEnum, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Enum as SQLEnum, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from .dbConnect import Base
@@ -59,9 +59,16 @@ class User(Base):
     user_id = Column(Integer, primary_key=True)
     name = Column(String, index=True)
     email = Column(String, index=True)
-    password = Column(String) #Ethan will change it
+    password = Column(String) #TODO: Ethan work on security measures
 
     orders = relationship("Order", back_populates="user")
 
     def __repr__(self):
         return f"<User(name=' {self.name}')>"
+
+class Admin(Base):
+    __tablename__ = "admins"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True)
+    password = Column(String) #TODO: Ethan work on security measures
+    is_admin = Column(Boolean, default=True)
