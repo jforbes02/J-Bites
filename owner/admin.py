@@ -40,9 +40,9 @@ class OrderAdmin(ModelView, model=Order):
     icon = "fa-user fa-receipt"
 
 class ReviewAdmin(ModelView, model=Review):
-    column_list = [Review.id, Review.reviewer_id, Review.reviewer_name, Review.rating]
-    column_searchable_list = [Review.reviewer_name, Review.rating]
-    column_sortable_list = [Review.id, Review.reviewer_name, Review.rating]
+    column_list = [Review.id, Review.rating, Review.user_id, Review.item_id]
+    column_searchable_list = [Review.user_id, Review.rating]
+    column_sortable_list = [Review.id, Review.user_id, Review.rating]
     can_edit = True
     can_delete = True
     name = "Review"
@@ -55,5 +55,5 @@ def setup_admin(app):
     admin.add_view(UserAdmin)
     admin.add_view(ItemAdmin)
     admin.add_view(OrderAdmin)
-
+    admin.add_view(ReviewAdmin)
     return admin

@@ -2,7 +2,7 @@ from typing import List
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
-from Database.dbModels import ItemCreate, Item, ItemResponse
+from Database.dbModels import Item, ItemResponse
 from Database.dbConnect import dbSession, engine, Base
 from starlette import status
 import logging
@@ -31,7 +31,7 @@ def get_item(item_id: int, session: dbSession):
 
 
 @app.get("/items", response_model=List[ItemResponse])
-def get_all_items(session: dbSession):  # ✅ Use ItemCreate + session
+def get_all_items(session: dbSession):
     items = session.query(Item).all()
     return items
 
