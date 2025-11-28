@@ -23,29 +23,66 @@ class Item(Base):
     description = Column(String, nullable=True)
 
     reviews = relationship("Review", back_populates="item")
-
+    order_items = relationship("OrderItem", back_populates="item")
 
 #Orders
-class StatusName(str, Enum):
+class OrderStatus(str, Enum):
     PENDING = "pending"
     CANCELLED = "cancelled"
     DONE = "done"
 
+class OrderItemResponse(BaseModel):
+    id: int
+    item_id: int
+    item_name: str
+    quantity: float
+    price: float
+    class Config:
+        from_attributes = True
+
 class OrderResponse(BaseModel):
     id: int
-    status: StatusName
+    status: OrderStatus
     phone_num: str | None
+    items: list[OrderItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+#request models for creation of orders
+class OrderItemCreate(BaseModel):
+    item_name: str
+    quantity: int = 1
+
+class OrderCreate(BaseModel):
+    phone_num: str
+    user_id: int #TODO: Ethan replace
+    items: list[OrderItemCreate] = []
 
 class Order(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True)
-    status = Column(SQLEnum(StatusName), nullable=False)
+    status = Column(SQLEnum(OrderStatus), nullable=False)
     user_id = Column(Integer, ForeignKey("users.user_id"))
     user = relationship("User", back_populates="orders")
     phone_num = Column(String, index=True)
+    order_items = relationship("OrderItem", back_populates="order")
+
     def __repr__(self):
         return f"<Order(item='{self.id}', user_id='{self.user_id}')>"
 
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey("orders.id"))
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    quantity = Column(Integer, default=1)
+    price_at_order = Column(Float, nullable=False)
+
+    order = relationship("Order", back_populates="order_items")
+    item = relationship("Item", back_populates="order_items")
 
 #Users
 class UserResponse(BaseModel):
@@ -81,6 +118,11 @@ class ReviewResponse(BaseModel):
     rating: int
     review_content: str | None
 
+class ReviewCreate(BaseModel):
+    item_id: int
+    rating: int
+    comment: str | None
+    user_id: int  # TODO Ethan replace user_id with session/JWT auth
 
 class ReviewStatus(str, Enum):
     PENDING = "pending"

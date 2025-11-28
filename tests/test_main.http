@@ -61,3 +61,80 @@ Content-Type: application/json
 }
 
 ###
+
+### Create order with single item
+POST http://127.0.0.1:8000/orders
+Content-Type: application/json
+
+{
+  "phone_num": "555-1234",
+  "user_id": 1,
+  "items": [
+    {
+      "item_id": 1,
+      "quantity": 2
+    }
+  ]
+}
+
+###
+
+### Create order with multiple items
+POST http://127.0.0.1:8000/orders
+Content-Type: application/json
+
+{
+  "phone_num": "555-5678",
+  "user_id": 2,
+  "items": [
+    {
+      "item_id": 1,
+      "quantity": 1
+    },
+    {
+      "item_id": 4,
+      "quantity": 2
+    },
+    {
+      "item_id": 7,
+      "quantity": 1
+    }
+  ]
+}
+
+###
+
+### Test error: Order with no items (should fail)
+POST http://127.0.0.1:8000/orders
+Content-Type: application/json
+
+{
+  "phone_num": "555-9999",
+  "user_id": 3,
+  "items": []
+}
+
+###
+
+### Test error: Order with non-existent item (should fail)
+POST http://127.0.0.1:8000/orders
+Content-Type: application/json
+
+{
+  "phone_num": "555-8888",
+  "user_id": 3,
+  "items": [
+    {
+      "item_id": 999,
+      "quantity": 1
+    }
+  ]
+}
+
+###
+
+### Get order details with items
+GET http://127.0.0.1:8000/orders/1
+Accept: application/json
+
+###
