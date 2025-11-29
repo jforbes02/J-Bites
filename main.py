@@ -4,11 +4,10 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from Database.dbModels import *
 from Database.dbConnect import dbSession, engine, Base
-from starlette import status
 from tests.seed import seed_database
 import logging
 from owner.admin import setup_admin
-from owner.notifications import notify_order_ready, notify_order_cancelled, notify_order_confirmed
+from owner.notifications import notify_order_cancelled, notify_order_confirmed
 from middleware.auth_middleware import auth_middleware
 from middleware.security import hash_password, verify_password, create_access_token
 
@@ -67,11 +66,14 @@ def get_reviews(item_id: int, session: dbSession):
 
 @app.post("/orders", status_code=201, response_model=OrderResponse)
 def create_order(order_data: OrderCreate, session: dbSession):
+    user = session.query(User).filter(User.user_id == order_data.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User '{order_data.username}' not found")
 
     order = Order(
         status = OrderStatus.PENDING,
         phone_num = order_data.phone_num,
-        user_id = order_data.user_id,
+        user_id = user.user_id,  # Use the looked-up user_id
     )
     session.add(order)
     session.flush()
@@ -80,7 +82,7 @@ def create_order(order_data: OrderCreate, session: dbSession):
     for i_data in order_data.items:
         db_item = session.query(Item).filter(Item.id == i_data.item_id).first()
         if not db_item:
-            raise HTTPException(status_code=404, detail="Item not found")
+            raise HTTPException(status_code=404, detail=f"Item with id {i_data.item_id} not found")
 
         order_item = OrderItem(
             order_id = order.id,
@@ -95,7 +97,7 @@ def create_order(order_data: OrderCreate, session: dbSession):
 
     notify_order_confirmed(order.phone_num, order.id, total_price)
 
-    #building the apis response
+    # Building the API's response
     items_response = []
     for o_item in order.order_items:
         items_response.append(
@@ -112,9 +114,12 @@ def create_order(order_data: OrderCreate, session: dbSession):
             id = order.id,
             status = order.status,
             phone_num = order.phone_num,
+            username = user.name,
             items=items_response,
-            total_price=total_price
+            total_price=total_price,
+            user_id = user.user_id
     )
+
 
 
 @app.get("/orders/{order_id}", response_model=OrderResponse)
@@ -206,26 +211,31 @@ def get_order_by_phone(phone_num: str, session: dbSession):
     return response
 
 @app.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.username == user.username).first()
+def login(user: UserCreate, db: dbSession):
+    db_user = db.query(User).filter(User.name == user.name).first()
     if not db_user or not verify_password(user.password, db_user.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = create_access_token({"sub": db_user.username})
+
+    token = create_access_token({"sub": db_user.name})
     return {"access_token": token, "token_type": "bearer"}
 
-@app.post("/register")
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.username == user.username).first()
+@app.post("/register", response_model=UserResponse)
+def register(user: UserCreate, db: dbSession):
+    existing = db.query(User).filter(User.name == user.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
     new_user = User(
-
-        username=user.username,
+        email=user.email,
+        name=user.name,
         password=hash_password(user.password)
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {"message": "User registered successfully"}
+    return UserResponse(
+        name=new_user.name,
+        email=new_user.email
+    )
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

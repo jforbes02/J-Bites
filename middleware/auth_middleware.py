@@ -1,5 +1,8 @@
 from fastapi import Request, HTTPException
-from security import decode_access_token
+from middleware.security import decode_access_token
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 PUBLIC_ROUTES = (
     "/docs",
@@ -11,11 +14,15 @@ PUBLIC_ROUTES = (
 )
 
 async def auth_middleware(request: Request, call_next):
+    #dev mode
+    if os.getenv("DEV_MODE") == "True":
+        return await call_next(request)
+
     path = request.url.path
     if path.startswith(PUBLIC_ROUTES):
         return await call_next(request)
 
-        auth_header = request.headers.get("Authorization")
+    auth_header = request.headers.get("Authorization")
 
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required")

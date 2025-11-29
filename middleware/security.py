@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import os
+from dotenv import load_dotenv
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-SECRET_KEY = "secret_jbites"
+load_dotenv()
+
+SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 120
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

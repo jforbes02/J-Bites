@@ -48,6 +48,8 @@ class OrderResponse(BaseModel):
     phone_num: str | None
     items: list[OrderItemResponse] = []
     total_price: float
+    username: str
+    user_id: str
 
     class Config:
         from_attributes = True
@@ -60,7 +62,7 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     phone_num: str
-    user_id: int #TODO: Ethan replace
+    username: str
     items: list[OrderItemCreate]
 
 class Order(Base):
@@ -89,21 +91,25 @@ class OrderItem(Base):
     item = relationship("Item", back_populates="order_items")
 
 #Users
+class UserCreate(BaseModel):
+    email: EmailStr
+    name: str
+    password: str = Field(min_length=8)
+
 class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: str
-    password: str # TODO Ethan replace user_id with session/JWT auth
+    name: str
+    email: EmailStr
 
 class User(Base):
     __tablename__ = "users"
     user_id = Column(Integer, primary_key=True)
     name = Column(String, index=True)
     email = Column(String, index=True)
-    password = Column(String) #TODO: Ethan work on security measures
+    password = Column(String, index=True)
 
     orders = relationship("Order", back_populates="user")
     reviews = relationship('Review', back_populates="user")
+
     def __repr__(self):
         return f"<User(name=' {self.name}')>"
 
@@ -126,7 +132,7 @@ class ReviewCreate(BaseModel):
     item_id: int
     rating: int
     comment: str | None
-    user_id: int  # TODO Ethan replace user_id with session/JWT auth
+    username: str
 
 class ReviewStatus(str, Enum):
     PENDING = "pending"
