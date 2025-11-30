@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>J Bites — Login</title>
+  <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <section class="hero is-fullheight">
+    <div class="hero-body">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-5-tablet is-4-desktop">
+            <div class="box">
+              <h1 class="title has-text-centered">J Bites</h1>
+              <h2 class="subtitle has-text-centered">Login to Your Account</h2>
+
+              <form id="loginForm">
+                <div class="field">
+                  <label class="label">Email</label>
+                  <div class="control has-icons-left">
+                    <input
+                      class="input"
+                      type="email"
+                      id="email"
+                      placeholder="your@email.com"
+                      required
+                    >
+                    <span class="icon is-small is-left">
+                      <i class="fas fa-envelope"></i>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label">Password</label>
+                  <div class="control has-icons-left">
+                    <input
+                      class="input"
+                      type="password"
+                      id="password"
+                      placeholder="••••••••"
+                      required
+                      minlength="8"
+                    >
+                    <span class="icon is-small is-left">
+                      <i class="fas fa-lock"></i>
+                    </span>
+                  </div>
+                </div>
+
+                <div id="errorMessage" class="notification is-danger is-light" style="display: none;">
+                  <button class="delete" onclick="document.getElementById('errorMessage').style.display='none'"></button>
+                  <p id="errorText"></p>
+                </div>
+
+                <div class="field">
+                  <div class="control">
+                    <button class="button is-primary is-fullwidth" type="submit">
+                      Login
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <div class="has-text-centered" style="margin-top: 20px;">
+                <p>Don't have an account? <a href="/register.html">Register here</a></p>
+                <p style="margin-top: 10px;"><a href="/">Back to Menu</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const API = window.location.origin;
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      // Hide previous error
+      document.getElementById('errorMessage').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API}/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            name: "", // Backend expects name but doesn't use it for login
+            password: password
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          showError(error.detail || 'Login failed. Please check your credentials.');
+          return;
+        }
+
+        const data = await response.json();
+
+        // Store the token
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('user_email', email);
+
+        // Success! Redirect to main page
+        alert('Login successful!');
+        window.location.href = '/';
+
+      } catch (error) {
+        console.error('Login error:', error);
+        showError('An error occurred. Please try again.');
+      }
+    });
+
+    function showError(message) {
+      document.getElementById('errorText').textContent = message;
+      document.getElementById('errorMessage').style.display = 'block';
+    }
+
+    // Check if already logged in
+    if (localStorage.getItem('access_token')) {
+      if (confirm('You are already logged in. Go to menu?')) {
+        window.location.href = '/';
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</body>
+</html>

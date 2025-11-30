@@ -17,6 +17,10 @@ PUBLIC_ROUTES = (
     "/payment-success",
     "/payment-cancelled",
     "/stripe-webhook",
+    "/",  # Home page
+    "/login.html",  # Login page
+    "/register.html",  # Register page
+    "/static",  # Static files (CSS, JS, images)
 )
 
 ADMIN_ONLY_ROUTES = (

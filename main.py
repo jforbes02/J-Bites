@@ -3,6 +3,9 @@ from typing import List
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from sqladmin.templating import Jinja2Templates
+import os
+from dotenv import load_dotenv
+from starlette.responses import RedirectResponse
 
 from Database.dbModels import *
 from Database.dbConnect import dbSession, engine, Base
@@ -16,7 +19,11 @@ from typing import Annotated
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from owner.payments import StripeService
+from starlette.middleware.sessions import SessionMiddleware
+load_dotenv()
 app = FastAPI(title="J-Bites")
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
+app.middleware("http")(auth_middleware)
 
 # for frontend folder  ---------
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
@@ -26,18 +33,23 @@ templates = Jinja2Templates(directory="frontend/templates")
 async def root():
     with open("frontend/templates/index.html") as f:
         return f.read()
-# ------------ 
+@app.get("/login.html", response_class=HTMLResponse)
+async def login_page():
+    with open("frontend/templates/login.html") as f:
+       return f.read()
 
-app.middleware("http")(auth_middleware)
+@app.get("/register.html", response_class=HTMLResponse)
+async def register_page():
+    with open("frontend/templates/register.html") as f:
+       return f.read()
 setup_admin(app)
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentAdmin = Annotated[Admin, Depends(get_current_admin)]
 @app.on_event("startup")
 def reset_database():
-    Base.metadata.drop_all(bind=engine)  # Drop all tables
     Base.metadata.create_all(bind=engine)  # Recreate fresh
-    seed_database()
+    seed_database() if os.getenv("DEV_MODE") == "True" else None
     logging.basicConfig(level=logging.INFO)
 
 @app.get("/items/{item_id}", response_model=ItemResponse)
@@ -262,7 +274,7 @@ def admin_login(email: str, password: str, db: dbSession):
     admin = db.query(Admin).filter(Admin.email == email).first()
 
     if not admin or not verify_password(password, admin.password):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token({"sub": admin.email, "is_admin": True})
     return {"access_token": token, "token_type": "bearer", "is_admin": True, "redirect_url": "/admin"}
 

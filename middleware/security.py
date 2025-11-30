@@ -82,14 +82,14 @@ def get_current_admin(info: HTTPAuthorizationCredentials = Depends(security), db
             detail="Admin access required"
         )
 
-    username: str = payload.get("sub")
-    if not username:
+    email: str = payload.get("sub")
+    if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
 
-    admin = db.query(Admin).filter_by(username=username).first()
+    admin = db.query(Admin).filter_by(email=email).first()
     if not admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -110,11 +110,11 @@ def verify_admin_token(token: str, db: Session) -> bool:
         if not is_admin:
             return False
 
-        username = payload.get("sub")
-        if not username:
+        email = payload.get("sub")
+        if not email:
             return False
 
-        admin = db.query(Admin).filter_by(username=username).first()
+        admin = db.query(Admin).filter_by(email=email).first()
         return admin is not None
 
     except Exception:

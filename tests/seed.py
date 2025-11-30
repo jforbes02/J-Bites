@@ -1,5 +1,6 @@
 from Database.dbConnect import SessionLocal, engine, Base
-from Database.dbModels import User, Item, Order, Review, OrderStatus, ReviewStatus, OrderItem
+from Database.dbModels import User, Item, Order, Review, OrderStatus, ReviewStatus, OrderItem, Admin
+from middleware.security import hash_password  # ← Import the hash function
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -12,6 +13,12 @@ def seed_database():
     db = SessionLocal()
 
     try:
+        admins = [
+            Admin(
+                email="admin@jbites.com",
+                password=hash_password("admin123"),
+                is_admin=True
+            )]
         logger.info("Starting database seeding...")
 
         # Reset database
@@ -19,18 +26,18 @@ def seed_database():
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
 
-        # Seed Users
+        # Seed Users - WITH HASHED PASSWORDS
         logger.info("Seeding users...")
         users = [
-            User(name="John Doe", email="john@example.com", password="password123"),
-            User(name="Jane Smith", email="jane@example.com", password="password123"),
-            User(name="Bob Wilson", email="bob@example.com", password="password123"),
-            User(name="Alice Johnson", email="alice@example.com", password="password123"),
-            User(name="Charlie Brown", email="charlie@example.com", password="password123"),
+            User(name="John Doe", email="john@example.com", password=hash_password("password123")),
+            User(name="Jane Smith", email="jane@example.com", password=hash_password("password123")),
+            User(name="Bob Wilson", email="bob@example.com", password=hash_password("password123")),
+            User(name="Alice Johnson", email="alice@example.com", password=hash_password("password123")),
+            User(name="Charlie Brown", email="charlie@example.com", password=hash_password("password123")),
         ]
         db.add_all(users)
         db.commit()
-        logger.info(f"Created {len(users)} users")
+        logger.info(f"Created {len(users)} users with hashed passwords")
 
         # Seed Items
         logger.info("Seeding items...")
@@ -130,7 +137,6 @@ def seed_database():
         logger.info(f"Created {len(reviews)} reviews")
 
         logger.info("✅ Database seeding completed successfully!")
-
     except Exception as e:
         logger.error(f"❌ Error seeding database: {e}")
         db.rollback()

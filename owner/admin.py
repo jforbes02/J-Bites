@@ -1,9 +1,13 @@
+import secrets
+
 from sqladmin import Admin, ModelView, action
 from Database.dbConnect import engine
-from Database.dbModels import User, Item, Order, Review, OrderItem, OrderStatus
+from Database.dbModels import User, Item, Order, Review, OrderItem, OrderStatus, Admin as AdminModel
 import stripe
 from Database.dbConnect import SessionLocal
-
+from sqladmin.authentication import AuthenticationBackend
+from starlette.requests import Request
+from middleware.security import verify_password, create_access_token, decode_access_token
 import os
 from dotenv import load_dotenv
 
@@ -12,6 +16,55 @@ from owner.notifications import notify_order_cancelled
 load_dotenv()
 import datetime
 
+
+class AdminAuth(AuthenticationBackend):
+    async def login(self, request: Request) -> bool:
+        """Handle admin login"""
+        form = await request.form()
+        email = form.get("username")  # sqladmin uses "username" field
+        password = form.get("password")
+
+        db = SessionLocal()
+        try:
+            # Check if admin exists
+            admin = db.query(AdminModel).filter(AdminModel.email == email).first()
+
+            if not admin:
+                return False
+
+            # Verify password
+            if not verify_password(password, admin.password):
+                return False
+
+            # Create token and store in session
+            request.session["admin_email"] = admin.email
+            request.session["is_admin"] = True
+
+            return True
+
+        finally:
+            db.close()
+
+    async def logout(self, request: Request) -> bool:
+        """Handle admin logout"""
+        request.session.clear()
+        return True
+
+    async def authenticate(self, request: Request) -> bool:
+        """Check if user is authenticated"""
+        admin_email = request.session.get("admin_email")
+        is_admin = request.session.get("is_admin", False)
+
+        if not admin_email or not is_admin:
+            return False
+
+        # Verify admin still exists
+        db = SessionLocal()
+        try:
+            admin = db.query(AdminModel).filter(AdminModel.email == admin_email).first()
+            return admin is not None
+        finally:
+            db.close()
 
 #How admin sees users
 class UserAdmin(ModelView, model=User):
@@ -164,7 +217,11 @@ class OrderItemAdmin(ModelView, model=OrderItem):
     icon = "fa-shopping-cart"
 
 def setup_admin(app):
-    admin = Admin(app, engine, title='J-Bites Admin')
+    secret_key = os.getenv("SECRET_KEY")
+    if not secret_key:
+        secret_key = secrets.token_urlsafe(32)
+    authentication_backend = AdminAuth(secret_key=secret_key)
+    admin = Admin(app, engine, title='J-Bites Admin', authentication_backend=authentication_backend)
 
     admin.add_view(UserAdmin)
     admin.add_view(ItemAdmin)
