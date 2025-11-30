@@ -32,6 +32,7 @@ class OrderStatus(str, Enum):
     PENDING = "pending"
     CANCELLED = "cancelled"
     DONE = "done"
+    CANCEL_REQUEST = "cancel_request"
 
 class OrderItemResponse(BaseModel):
     id: int
@@ -75,6 +76,9 @@ class Order(Base):
     order_items = relationship("OrderItem", back_populates="order")
 
     cancelled_at = Column(DateTime, nullable=True)
+    stripe_session_id = Column(String, nullable=True)  # Stripe checkout session
+    payment_status = Column(String, default="pending")  # pending, paid, refunded
+
     def __repr__(self):
         return f"<Order(item='{self.id}', user_id='{self.user_id}')>"
 
@@ -116,7 +120,7 @@ class User(Base):
 class Admin(Base):
     __tablename__ = "admins"
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, index=True)
+    email = Column(String, index=True)
     password = Column(String)
     is_admin = Column(Boolean, default=True)
 

@@ -7,7 +7,7 @@ import bcrypt
 from Database.dbConnect import get_db
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from Database.dbModels import User
+from Database.dbModels import User, Admin
 from sqlalchemy.orm import Session
 
 load_dotenv()
@@ -61,3 +61,61 @@ def get_current_user(info: HTTPAuthorizationCredentials = Depends(security), db:
         )
 
     return user
+
+
+def get_current_admin(info: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> Admin:
+    """Verify the current user is an admin"""
+    token = info.credentials
+    payload = decode_access_token(token)
+
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+
+    # Check if token has is_admin flag
+    is_admin = payload.get("is_admin", False)
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    username: str = payload.get("sub")
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+
+    admin = db.query(Admin).filter_by(username=username).first()
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+
+    return admin
+
+
+#Verify admin from token string
+def verify_admin_token(token: str, db: Session) -> bool:
+    try:
+        payload = decode_access_token(token)
+        if not payload:
+            return False
+
+        is_admin = payload.get("is_admin", False)
+        if not is_admin:
+            return False
+
+        username = payload.get("sub")
+        if not username:
+            return False
+
+        admin = db.query(Admin).filter_by(username=username).first()
+        return admin is not None
+
+    except Exception:
+        return False

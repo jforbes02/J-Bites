@@ -55,7 +55,8 @@ def notify_order_ready(phone: str, order_id: int):
 
 
 def notify_order_cancelled(phone: str, order_id: int, refund: float = None):
-    message = f"❌ J-Bites order #{order_id} cancelled."
     if refund:
-        message += f" Refund of ${refund:.2f} will be processed."
+        message = f"✅ J-Bites order #{order_id} cancelled. Refund of ${refund:.2f} has been processed to your original payment method. Please allow 5-10 business days."
+    else:
+        message = f"❌ J-Bites order #{order_id} cancelled."
     return send_sms(phone, message)

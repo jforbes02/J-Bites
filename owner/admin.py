@@ -1,6 +1,16 @@
-from sqladmin import Admin, ModelView
+from sqladmin import Admin, ModelView, action
 from Database.dbConnect import engine
-from Database.dbModels import User, Item, Order, Review, OrderItem
+from Database.dbModels import User, Item, Order, Review, OrderItem, OrderStatus
+import stripe
+from Database.dbConnect import SessionLocal
+
+import os
+from dotenv import load_dotenv
+
+from owner.notifications import notify_order_cancelled
+
+load_dotenv()
+import datetime
 
 
 #How admin sees users
@@ -29,7 +39,7 @@ class ItemAdmin(ModelView, model=Item):
     icon = "fa-user fa-fries"
 
 class OrderAdmin(ModelView, model=Order):
-    column_list = [Order.id, Order.user, Order.status, Order.phone_num, Order.order_items]
+    column_list = [Order.id, Order.user, Order.status, Order.phone_num, Order.order_items, Order.payment_status]
     column_searchable_list = [Order.phone_num]
     column_sortable_list = [Order.id, Order.status]
     can_edit = True
@@ -38,6 +48,101 @@ class OrderAdmin(ModelView, model=Order):
     name_plural = "Orders"
     icon = "fa-receipt"
 
+    @action(
+        name="approve_refund",
+        label="✅ Approve & Refund",
+        add_in_detail=True,
+        add_in_list=True
+    )
+    async def approve_refund(self, request):
+        """Admin approves cancellation and processes refund with one click"""
+
+        pks = request.query_params.get("pks", "").split(",")
+
+        db = SessionLocal()
+        messages = []
+
+        try:
+            for pk in pks:
+                if not pk:
+                    continue
+
+                order = db.query(Order).filter(Order.id == int(pk)).first()
+
+                if not order:
+                    messages.append(f"Order #{pk} not found")
+                    continue
+
+                refund_amount = None
+
+                # Process Stripe refund if paid
+                if order.payment_status == "paid" and order.stripe_session_id:
+                    try:
+                        stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+                        stripe_session = stripe.checkout.Session.retrieve(order.stripe_session_id)
+                        refund = stripe.Refund.create(
+                            payment_intent=stripe_session.payment_intent
+                        )
+                        refund_amount = refund.amount / 100
+                        order.payment_status = "refunded"
+                        messages.append(f"Order #{pk}: Refunded ${refund_amount:.2f}")
+                    except stripe.error.StripeError as e:
+                        messages.append(f"Order #{pk}: Refund failed - {str(e)}")
+                        continue
+                else:
+                    messages.append(f"Order #{pk}: No payment to refund")
+
+                # Update order status
+                order.status = OrderStatus.CANCELLED
+                if not order.cancelled_at:
+                    order.cancelled_at = datetime.utcnow()
+
+                db.commit()
+
+                # Send notification
+                notify_order_cancelled(order.phone_num, order.id, refund_amount)
+
+            from starlette.responses import RedirectResponse
+            # Redirect back to order list
+            return RedirectResponse(url="/admin/order", status_code=302)
+
+        except Exception as e:
+            messages.append(f"Error: {str(e)}")
+            db.rollback()
+            from starlette.responses import RedirectResponse
+            return RedirectResponse(url="/admin/order", status_code=302)
+        finally:
+            db.close()
+
+    @action(
+        name="deny_cancellation",
+        label="❌ Deny Cancellation",
+        add_in_detail=True,
+        add_in_list=True
+    )
+    async def deny_cancellation(self, request):
+        """Admin denies cancellation request"""
+        from Database.dbConnect import SessionLocal
+        from starlette.responses import RedirectResponse
+
+        pks = request.query_params.get("pks", "").split(",")
+
+        db = SessionLocal()
+        try:
+            for pk in pks:
+                if not pk:
+                    continue
+
+                order = db.query(Order).filter(Order.id == int(pk)).first()
+
+                if order and order.status == OrderStatus.CANCEL_REQUEST:
+                    order.status = OrderStatus.PENDING
+                    order.cancelled_at = None
+                    db.commit()
+
+            return RedirectResponse(url="/admin", status_code=302)
+        finally:
+            db.close()
 class ReviewAdmin(ModelView, model=Review):
     column_list = [Review.id, Review.status, Review.rating, Review.user_id, Review.item_id]
     column_searchable_list = [Review.user_id, Review.rating]

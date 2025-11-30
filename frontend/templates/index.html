@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>J Bites — Menu</title>
+  <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title has-text-centered">J Bites</h1>
+
+      <div class="buttons is-centered">
+        <button class="button is-primary" id="btnMenu">View Menu / Add to Cart</button>
+        <button class="button is-info" id="btnTrack">See / Track Order</button>
+        <button class="button is-warning" id="btnReviews">Reviews</button>
+      </div>
+
+      <div id="mainContent" style="margin-top: 24px;"></div>
+
+      <!-- Cart drawer -->
+      <div id="cartDrawer" class="box" style="
+          display:none;
+          position:fixed;
+          right:20px;
+          top:80px;
+          width:320px;
+          z-index:50;
+          max-height:80vh;
+          overflow-y:auto;
+      ">
+        <h3 class="subtitle">Cart</h3>
+        <div id="cartItems"></div>
+        <div style="margin-top:12px;">
+          <input id="customerName" class="input" placeholder="Your name (required)">
+          <input id="customerPhone" class="input" placeholder="Phone number (required)" style="margin-top:8px;">
+          <button id="checkoutBtn" class="button is-success" style="margin-top:12px;">Checkout</button>
+          <button id="closeCart" class="button is-light" style="margin-top:12px; margin-left:6px;">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<script>
+const API = window.location.origin;
+let CART = [];
+
+// Buttons
+document.getElementById('btnMenu').addEventListener('click', showMenu);
+document.getElementById('btnTrack').addEventListener('click', trackOrderPrompt);
+document.getElementById('btnReviews').addEventListener('click', showReviewsPrompt);
+document.getElementById('closeCart').addEventListener('click', () => {
+  document.getElementById('cartDrawer').style.display = 'none';
+});
+document.getElementById('checkoutBtn').addEventListener('click', checkout);
+
+
+// =========================
+// SHOW MENU
+// =========================
+async function showMenu() {
+  const res = await fetch(`${API}/items`);
+  const items = await res.json();
+
+  let html = `<h2 class="title">Menu</h2>`;
+  html += `<div class="columns is-multiline">`;
+
+  items.forEach(item => {
+    html += `
+      <div class="column is-one-third">
+        <div class="card">
+          <div class="card-content">
+            <p class="title is-5">${item.name}</p>
+            <p class="subtitle is-6">$${item.price}</p>
+            <p>${item.description || ''}</p>
+            <button class="button is-primary" onclick="addToCart(${item.id}, '${item.name}', ${item.price})" style="margin-top:10px;">
+              Add to cart
+            </button>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += `</div>`;
+  document.getElementById("mainContent").innerHTML = html;
+}
+
+
+// =========================
+// CART FUNCTIONS
+// =========================
+function addToCart(id, name, price) {
+  const existing = CART.find(i => i.item_id === id);
+  if (existing) {
+    existing.quantity++;
+  } else {
+    CART.push({ item_id: id, name, price, quantity: 1 });
+  }
+  renderCart();
+}
+
+function renderCart() {
+  document.getElementById("cartDrawer").style.display = "block";
+
+  let html = "";
+  CART.forEach((item, idx) => {
+    html += `
+      <div class="box" style="padding:10px;">
+        <strong>${item.name}</strong> — $${item.price}<br>
+        Qty: 
+        <button class="button is-small" onclick="updateQty(${idx}, -1)">-</button>
+        ${item.quantity}
+        <button class="button is-small" onclick="updateQty(${idx}, 1)">+</button>
+      </div>`;
+  });
+
+  if (CART.length === 0) {
+    html = "<p>Your cart is empty.</p>";
+  }
+
+  document.getElementById("cartItems").innerHTML = html;
+}
+
+function updateQty(index, change) {
+  CART[index].quantity += change;
+  if (CART[index].quantity <= 0) {
+    CART.splice(index, 1);
+  }
+  renderCart();
+}
+
+
+// =========================
+// CHECKOUT → POST /orders
+// =========================
+async function checkout() {
+  const name = document.getElementById("customerName").value.trim();
+  const phone = document.getElementById("customerPhone").value.trim();
+
+  if (!name || !phone || CART.length === 0) {
+    alert("Name, phone, and items required.");
+    return;
+  }
+
+  const payload = {
+    username: name,
+    phone_num: phone,
+    items: CART.map(i => ({
+      item_id: i.item_id,
+      quantity: i.quantity
+    }))
+  };
+
+  const res = await fetch(`${API}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    alert("Error placing order: " + err.detail);
+    return;
+  }
+
+  const data = await res.json();
+
+  alert(`Order #${data.id} placed! Total: $${data.total_price}`);
+  CART = [];
+  renderCart();
+}
+
+
+// =========================
+// TRACK ORDER
+// =========================
+function trackOrderPrompt() {
+  const phone = prompt("Enter your phone number:");
+  if (!phone) return;
+  trackOrder(phone);
+}
+
+async function trackOrder(phone) {
+  const res = await fetch(`${API}/orders/search/${phone}`);
+  if (!res.ok) {
+    alert("No orders found.");
+    return;
+  }
+
+  const orders = await res.json();
+  let html = `<h2 class="title">Your Orders</h2>`;
+
+  orders.forEach(order => {
+    html += `
+      <div class="box">
+        <strong>Order #${order.id}</strong><br>
+        Status: ${order.status}<br>
+        Total: $${order.total_price}<br>
+        <ul>
+          ${order.items.map(i => `<li>${i.quantity} × ${i.item_name} ($${i.price})</li>`).join("")}
+        </ul>
+      </div>
+    `;
+  });
+
+  document.getElementById("mainContent").innerHTML = html;
+}
+
+
+// =========================
+// REVIEWS
+// =========================
+function showReviewsPrompt() {
+  const id = prompt("Enter item ID to view reviews:");
+  if (!id) return;
+  showReviews(id);
+}
+
+async function showReviews(itemId) {
+  const res = await fetch(`${API}/items/${itemId}/reviews`);
+  if (!res.ok) {
+    alert("Item not found.");
+    return;
+  }
+  const reviews = await res.json();
+
+  let html = `<h2 class="title">Reviews for Item #${itemId}</h2>`;
+
+  if (reviews.length === 0) {
+    html += "<p>No approved reviews yet.</p>";
+  } else {
+    reviews.forEach(r => {
+      html += `
+        <div class="box">
+          <strong>Rating: ${r.rating}/5</strong><br>
+          ${r.review_content}
+        </div>
+      `;
+    });
+  }
+
+  document.getElementById("mainContent").innerHTML = html;
+}
+</script>
+
+</body>
+</html>
