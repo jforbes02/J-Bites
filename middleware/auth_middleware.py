@@ -1,10 +1,10 @@
 from fastapi import Request, HTTPException
 from middleware.security import decode_access_token, verify_admin_token
 from Database.dbConnect import SessionLocal
-import os
-from dotenv import load_dotenv
+from config.config import settings
+import logging
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
 PUBLIC_ROUTES = (
     "/docs",
@@ -17,10 +17,11 @@ PUBLIC_ROUTES = (
     "/payment-success",
     "/payment-cancelled",
     "/stripe-webhook",
-    "/",  # Home page
-    "/login.html",  # Login page
-    "/register.html",  # Register page
-    "/static",  # Static files (CSS, JS, images)
+    "/health",
+    "/",
+    "/login.html",
+    "/register.html",
+    "/static",
 )
 
 ADMIN_ONLY_ROUTES = (
@@ -29,8 +30,10 @@ ADMIN_ONLY_ROUTES = (
 
 
 async def auth_middleware(request: Request, call_next):
-    # Dev mode bypass
-    if os.getenv("DEV_MODE") == "True":
+    # ONLY bypass auth in development with explicit flag
+    # This should NEVER be true in production (validated in settings)
+    if settings.DISABLE_AUTH and settings.is_development():
+        logger.warning(f"⚠️  AUTH DISABLED for {request.url.path} - DEVELOPMENT MODE ONLY")
         return await call_next(request)
 
     path = request.url.path

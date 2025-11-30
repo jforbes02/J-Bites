@@ -16,11 +16,11 @@ class StripeService:
                         'product_data':{
                             'name': item['name'],
                         },
-                        'unit_amount': item['price' * 100],
+                        'unit_amount': int(item['price'] * 100),
                     },
                     'quantity': item['quantity'],
                 })
-                session = stripe.checkout.Session.create(
+            session = stripe.checkout.Session.create(
                     payment_method_types=['card'],
                     line_items=line_items,
                     mode='payment',
@@ -31,7 +31,7 @@ class StripeService:
                         'order_id': order_id
                     }
                 )
-                return session.url
+            return session.url
         except stripe.error.StripeError as e:
             raise Exception(f"Checkout creation failed: {e}")
 

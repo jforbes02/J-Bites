@@ -13,18 +13,33 @@ def seed_database():
     db = SessionLocal()
 
     try:
-        admins = [
-            Admin(
-                email="admin@jbites.com",
-                password=hash_password("admin123"),
-                is_admin=True
-            )]
-        logger.info("Starting database seeding...")
-
         # Reset database
         logger.info("Clearing existing data...")
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
+        logger.info("Starting database seeding...")
+
+        admins = [
+            Admin(
+                email="jordan@jbites.com",
+                password=hash_password("admin123"),
+                is_admin=True
+            ),
+            Admin(
+                email="justin@jbites.com",
+                password=hash_password("admin123"),
+                is_admin=True
+            ),
+            Admin(
+                email="ethan@jbites.com",
+                password=hash_password("admin123"),
+                is_admin=True
+            )
+        ]
+        db.add_all(admins)
+        db.commit()
+        logger.info(f"Created {len(admins)} admins (justin, jordan, ethan) with hashed passwords")
+
 
         # Seed Users - WITH HASHED PASSWORDS
         logger.info("Seeding users...")

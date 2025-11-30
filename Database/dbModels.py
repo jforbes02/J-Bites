@@ -51,6 +51,8 @@ class OrderResponse(BaseModel):
     total_price: float
     username: str
     user_id: int
+    payment_status: str
+    stripe_session_id: str
 
     class Config:
         from_attributes = True

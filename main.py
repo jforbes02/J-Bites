@@ -1,18 +1,18 @@
 from typing import List
-
+import stripe
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from sqladmin.templating import Jinja2Templates
 import os
 from dotenv import load_dotenv
 from starlette.responses import RedirectResponse
-
+from config.config import settings
 from Database.dbModels import *
 from Database.dbConnect import dbSession, engine, Base
 from tests.seed import seed_database
 import logging
 from owner.admin import setup_admin
-from owner.notifications import notify_order_cancelled, notify_order_confirmed, send_sms
+from owner.notifications import notify_order_confirmed, send_sms
 from middleware.auth_middleware import auth_middleware
 from middleware.security import hash_password, verify_password, create_access_token, get_current_user, get_current_admin
 from typing import Annotated
@@ -20,7 +20,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from owner.payments import StripeService
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.requests import Request
 load_dotenv()
+settings.validate()
 app = FastAPI(title="J-Bites")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 app.middleware("http")(auth_middleware)
@@ -42,14 +44,25 @@ async def login_page():
 async def register_page():
     with open("frontend/templates/register.html") as f:
        return f.read()
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "enviornment": settings.ENVIRONMENT,
+        "auth_enabled": not (settings.DISABLE_AUTH and settings.is_development())
+    }
 setup_admin(app)
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentAdmin = Annotated[Admin, Depends(get_current_admin)]
 @app.on_event("startup")
 def reset_database():
-    Base.metadata.create_all(bind=engine)  # Recreate fresh
-    seed_database() if os.getenv("DEV_MODE") == "True" else None
+    Base.metadata.create_all(engine)
+    if os.getenv("SEED_DATABASE", "false").lower() == "true":
+        seed_database()
+        Base.metadata.create_all(engine)
+
     logging.basicConfig(level=logging.INFO)
 
 @app.get("/items/{item_id}", response_model=ItemResponse)
@@ -158,12 +171,12 @@ def get_order(order_id: int, session: dbSession):
             OrderItemResponse(
                 id=o_item.id,
                 item_id=o_item.item_id,
-                item_name=o_item.item.name,  # Now this works with eager loading!
+                item_name=o_item.item.name,
                 quantity=o_item.quantity,
                 price=o_item.price_at_order
             )
         )
-        total_price += o_item.price_at_order * o_item.quantity  # ✅ FIXED: Moved inside loop
+        total_price += o_item.price_at_order * o_item.quantity
 
     return OrderResponse(
         id = order.id,
@@ -195,7 +208,8 @@ def cancel_order(order_id: int, session: dbSession):
         message = f"📋 J-Bites: Cancellation request for order #{order.id} received. Refund pending admin approval."
     else:
         message = f"📋 J-Bites: Order #{order.id} cancellation request received."
-    send_sms(order.phone_num, message)
+    if settings.ENABLE_SMS:
+        send_sms(order.phone_num, message)
 
     try:
         session.commit()
@@ -316,5 +330,43 @@ def get_pending_cancellations(current_admin: CurrentAdmin, db: dbSession):
         )
 
     return response
+@app.post("/stripe-webhook")
+async def stripe_webhook(request: Request, db: dbSession):
+    payload = await request.body()
+    sig_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.getenv("SECRET_WEBHOOK")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.InvalidSignatureError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    if event["type"] == "checkout.session.completed":
+        session = event['data']['object']
+        order_id = session['metadata']['order_id']
+
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if order:
+            order.payment_status = order.payment_status = "paid"
+            order.stripe_session_id = session['id']
+            db.commit()
+
+            notify_order_confirmed(order.phone_num, order.id, session['amount_total']/100)
+    return {"status": "success"}
+
+@app.get("/payment-success")
+async def payment_success(order_id: int):
+    return RedirectResponse(url="/?success=true")
+
+@app.get("/payment-cancelled")
+async def payment_cancelled(order_id: int, db: dbSession):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if order:
+        db.delete(order)
+        db.commit()
+    return RedirectResponse(url="/?cancelled=true")
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
