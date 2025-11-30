@@ -12,6 +12,16 @@ from middleware.auth_middleware import auth_middleware
 from middleware.security import hash_password, verify_password, create_access_token, get_current_user
 from typing import Annotated
 app = FastAPI(title="J-Bites")
+
+# for frontend folder  ---------
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    with open("frontend/index.html") as f:
+        return f.read()
+# ------------ 
+
 app.middleware("http")(auth_middleware)
 setup_admin(app)
 
