@@ -1,28 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>J Bites — Menu</title>
-  <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-  <section class="section">
-    <div class="container">
-      <!-- Auth Status Bar -->
-      <div class="level" style="margin-bottom: 20px;">
-        <div class="level-left">
-          <div class="level-item">
-            <h1 class="title">J Bites</h1>
+  <head>
+    <meta charset="utf-8" />
+    <title>J Bites — Menu</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      /* Custom styling for logo */
+      #logoImage {
+        max-width: 200px;
+        height: auto;
+        margin-top: 12px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="section">
+      <div class="container">
+
+        <!-- Auth Bar -->
+        <div class="level" style="margin-bottom: 20px;">
+          <div class="level-left"></div>
+          <div class="level-right">
+            <div class="level-item" id="authStatus"></div>
           </div>
         </div>
-        <div class="level-right">
-          <div class="level-item">
-            <div id="authStatus"></div>
-          </div>
+
+        <!-- Centered Image -->
+        <div class="has-text-centered" style="margin-bottom: 30px;">
+          <img src="https://mail.google.com/mail/u/0?ui=2&ik=210e14aab2&attid=0.1&permmsgid=msg-a:r7776208729667011046&th=19ae7a8da91ab55f&view=fimg&fur=ip&permmsgid=msg-a:r7776208729667011046&sz=s0-l75-ft&attbid=ANGjdJ88WFy3xEKMa1r3gyJjIN5444mn7XpVUgjwhJwNH9WWbhjbTVbW8dXt6ke3FfIae8jbY0XrdbFbOg6tDEuAgfaJqOWqHBrS1hm9KgKHsFB127Gi9L9cD8D55k4&disp=emb&realattid=ii_19ae7a8d3ccb65b46191&zw" alt="J Bites Logo" id="logoImage" />
         </div>
-      </div>
 
       <div class="buttons is-centered">
         <button class="button is-primary" id="btnMenu">View Menu / Add to Cart</button>
@@ -340,3 +356,4 @@ async function showReviews(itemId) {
 
 </body>
 </html>
+
